@@ -182,11 +182,13 @@ func makePosts(results []Post, CSRFToken string, allComments bool) ([]Post, erro
 	var posts []Post
 
 	for _, p := range results {
+		// 投稿毎のコメント数を取得
 		err := db.Get(&p.CommentCount, "SELECT COUNT(*) AS `count` FROM `comments` WHERE `post_id` = ?", p.ID)
 		if err != nil {
 			return nil, err
 		}
 
+		// デフォルトで最新3件のコメントを取得
 		query := "SELECT * FROM `comments` WHERE `post_id` = ? ORDER BY `created_at` DESC"
 		if !allComments {
 			query += " LIMIT 3"
@@ -197,6 +199,7 @@ func makePosts(results []Post, CSRFToken string, allComments bool) ([]Post, erro
 			return nil, cerr
 		}
 
+		// コメントのユーザIDを取得
 		for i := 0; i < len(comments); i++ {
 			uerr := db.Get(&comments[i].User, "SELECT * FROM `users` WHERE `id` = ?", comments[i].UserID)
 			if uerr != nil {
@@ -204,7 +207,7 @@ func makePosts(results []Post, CSRFToken string, allComments bool) ([]Post, erro
 			}
 		}
 
-		// reverse
+		// reverse why?
 		for i, j := 0, len(comments)-1; i < j; i, j = i+1, j-1 {
 			comments[i], comments[j] = comments[j], comments[i]
 		}
@@ -218,6 +221,7 @@ func makePosts(results []Post, CSRFToken string, allComments bool) ([]Post, erro
 
 		p.CSRFToken = CSRFToken
 
+		// 最初のクエリで除外する
 		if p.User.DelFlg == 0 {
 			posts = append(posts, p)
 		}
