@@ -30,6 +30,7 @@ import (
 var (
 	db    *sqlx.DB
 	store *gsm.MemcacheStore
+	t     *template.Template
 )
 
 const (
@@ -417,12 +418,7 @@ func getIndex(w http.ResponseWriter, r *http.Request) {
 		"imageURL": imageURL,
 	}
 
-	template.Must(template.New("layout.html").Funcs(fmap).ParseFiles(
-		getTemplPath("layout.html"),
-		getTemplPath("index.html"),
-		getTemplPath("posts.html"),
-		getTemplPath("post.html"),
-	)).Execute(w, struct {
+	t.Execute(w, struct {
 		Posts     []Post
 		Me        User
 		CSRFToken string
@@ -792,6 +788,15 @@ func postAdminBanned(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/admin/banned", http.StatusFound)
+}
+
+func init() {
+	t = template.Must(template.New("layout.html").Funcs(fmap).ParseFiles(
+		getTemplPath("layout.html"),
+		getTemplPath("index.html"),
+		getTemplPath("posts.html"),
+		getTemplPath("post.html"),
+	))
 }
 
 func main() {
