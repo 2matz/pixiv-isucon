@@ -30,6 +30,7 @@ import (
 var (
 	db    *sqlx.DB
 	store *gsm.MemcacheStore
+	fmap  FuncMap
 	t     *template.Template
 )
 
@@ -414,10 +415,6 @@ func getIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmap := template.FuncMap{
-		"imageURL": imageURL,
-	}
-
 	t.Execute(w, struct {
 		Posts     []Post
 		Me        User
@@ -585,10 +582,6 @@ func getPostsID(c web.C, w http.ResponseWriter, r *http.Request) {
 	p := posts[0]
 
 	me := getSessionUser(r)
-
-	fmap := template.FuncMap{
-		"imageURL": imageURL,
-	}
 
 	template.Must(template.New("layout.html").Funcs(fmap).ParseFiles(
 		getTemplPath("layout.html"),
@@ -791,6 +784,9 @@ func postAdminBanned(w http.ResponseWriter, r *http.Request) {
 }
 
 func init() {
+	fmap = template.FuncMap{
+		"imageURL": imageURL,
+	}
 	t = template.Must(template.New("layout.html").Funcs(fmap).ParseFiles(
 		getTemplPath("layout.html"),
 		getTemplPath("index.html"),
