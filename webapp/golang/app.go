@@ -571,10 +571,6 @@ func getPosts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmap := template.FuncMap{
-		"imageURL": imageURL,
-	}
-
 	getPostsTemplate.Execute(w, posts)
 }
 
