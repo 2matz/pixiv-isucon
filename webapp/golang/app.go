@@ -30,7 +30,7 @@ import (
 var (
 	db    *sqlx.DB
 	store *gsm.MemcacheStore
-	fmap  FuncMap
+	fmap  template.FuncMap
 	t     *template.Template
 )
 
