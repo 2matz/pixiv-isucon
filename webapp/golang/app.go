@@ -57,10 +57,10 @@ type Post struct {
 	Body         string    `db:"body"`
 	Mime         string    `db:"mime"`
 	CreatedAt    time.Time `db:"created_at"`
-	CommentCount int
+	CommentCount int       // 予め計算しておきたい
 	Comments     []Comment
-	User         User
-	CSRFToken    string
+	User         User   // 投稿者
+	CSRFToken    string // コメント受付用
 }
 
 type Comment struct {
@@ -188,7 +188,7 @@ func makePosts(results []Post, CSRFToken string, allComments bool) ([]Post, erro
 			return nil, err
 		}
 
-		// デフォルトで最新3件のコメントを取得
+		// 投稿のコメントを降順で取得, allCommentsがfalseのときは最新3件
 		query := "SELECT * FROM `comments` WHERE `post_id` = ? ORDER BY `created_at` DESC"
 		if !allComments {
 			query += " LIMIT 3"
@@ -207,21 +207,24 @@ func makePosts(results []Post, CSRFToken string, allComments bool) ([]Post, erro
 			}
 		}
 
-		// reverse why?
+		// コメントを昇順に並び替え
 		for i, j := 0, len(comments)-1; i < j; i, j = i+1, j-1 {
 			comments[i], comments[j] = comments[j], comments[i]
 		}
 
+		// 投稿にコメントを追加
 		p.Comments = comments
 
+		// 投稿者の情報を取得
 		perr := db.Get(&p.User, "SELECT * FROM `users` WHERE `id` = ?", p.UserID)
 		if perr != nil {
 			return nil, perr
 		}
 
+		// 投稿にCSRFトークンを追加
 		p.CSRFToken = CSRFToken
 
-		// 最初のクエリで除外する
+		// ユーザが users.del_flg = 0 の場合だけ投稿を表示する, 1ページあたり20件
 		if p.User.DelFlg == 0 {
 			posts = append(posts, p)
 		}
@@ -397,7 +400,8 @@ func getIndex(w http.ResponseWriter, r *http.Request) {
 
 	results := []Post{}
 
-	err := db.Select(&results, "SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` ORDER BY `created_at` DESC")
+	// 全投稿を投稿日時の降順で取得 => users.del_flg = 0 を満たす かつ 最新20件だけでいい
+	err := db.Select(&results, "SELECT posts.id, posts.user_id, posts.body, posts.mime, posts.created_at FROM posts INNER JOIN users ON posts.user_id = users.id AND users.del_flg = 0 ORDER BY posts.created_at DESC LIMIT 20")
 	if err != nil {
 		fmt.Println(err)
 		return
