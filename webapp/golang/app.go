@@ -23,6 +23,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
+	newrelic "github.com/newrelic/go-agent"
 	"github.com/zenazn/goji"
 	"github.com/zenazn/goji/web"
 )
@@ -30,6 +31,7 @@ import (
 var (
 	db    *sqlx.DB
 	store *gsm.MemcacheStore
+	app   newrelic.Application
 )
 
 const (
@@ -73,8 +75,17 @@ type Comment struct {
 }
 
 func init() {
+	var err error
 	memcacheClient := memcache.New("localhost:11211")
 	store = gsm.NewMemcacheStore(memcacheClient, "isucogram_", []byte("sendagaya"))
+
+	// newrelic
+	newrelicAppKey := os.Getenv("NEWRELIC_APP_KEY")
+	config := newrelic.NewConfig("pixiv isucon", newrelicAppKey)
+	app, err = newrelic.NewApplication(config)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func dbInitialize() {
@@ -396,6 +407,9 @@ func getLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func getIndex(w http.ResponseWriter, r *http.Request) {
+	txn := app.StartTransaction("myTxn", w, r)
+	defer txn.End()
+
 	me := getSessionUser(r)
 
 	results := []Post{}
