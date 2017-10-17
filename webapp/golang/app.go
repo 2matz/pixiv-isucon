@@ -23,20 +23,15 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/sqlx"
+	newrelic "github.com/newrelic/go-agent"
 	"github.com/zenazn/goji"
 	"github.com/zenazn/goji/web"
 )
 
 var (
-	db                  *sqlx.DB
-	store               *gsm.MemcacheStore
-	indexTemplate       *template.Template
-	loginTemplate       *template.Template
-	adminTemplate       *template.Template
-	getPostIDTemplte    *template.Template
-	accountNameTemplate *template.Template
-	getRegisterTemplate *template.Template
-	getPostsTemplate    *template.Template
+	db    *sqlx.DB
+	store *gsm.MemcacheStore
+	app   newrelic.Application
 )
 
 const (
@@ -80,45 +75,17 @@ type Comment struct {
 }
 
 func init() {
+	var err error
 	memcacheClient := memcache.New("localhost:11211")
 	store = gsm.NewMemcacheStore(memcacheClient, "isucogram_", []byte("sendagaya"))
 
-	fmap := template.FuncMap{
-		"imageURL": imageURL,
+	// newrelic
+	newrelicAppKey := os.Getenv("NEWRELIC_APP_KEY")
+	config := newrelic.NewConfig("pixiv isucon", newrelicAppKey)
+	app, err = newrelic.NewApplication(config)
+	if err != nil {
+		panic(err)
 	}
-	indexTemplate = template.Must(template.New("layout.html").Funcs(fmap).ParseFiles(
-		getTemplPath("layout.html"),
-		getTemplPath("index.html"),
-		getTemplPath("posts.html"),
-		getTemplPath("post.html"),
-	))
-	loginTemplate = template.Must(template.ParseFiles(
-		getTemplPath("layout.html"),
-		getTemplPath("login.html")),
-	)
-	adminTemplate = template.Must(template.ParseFiles(
-		getTemplPath("layout.html"),
-		getTemplPath("banned.html")),
-	)
-	getPostIDTemplte = template.Must(template.New("layout.html").Funcs(fmap).ParseFiles(
-		getTemplPath("layout.html"),
-		getTemplPath("post_id.html"),
-		getTemplPath("post.html"),
-	))
-	accountNameTemplate = template.Must(template.New("layout.html").Funcs(fmap).ParseFiles(
-		getTemplPath("layout.html"),
-		getTemplPath("user.html"),
-		getTemplPath("posts.html"),
-		getTemplPath("post.html"),
-	))
-	getRegisterTemplate = template.Must(template.ParseFiles(
-		getTemplPath("layout.html"),
-		getTemplPath("register.html")),
-	)
-	getPostsTemplate = template.Must(template.New("posts.html").Funcs(fmap).ParseFiles(
-		getTemplPath("posts.html"),
-		getTemplPath("post.html"),
-	))
 }
 
 func dbInitialize() {
@@ -431,6 +398,9 @@ func getLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func getIndex(w http.ResponseWriter, r *http.Request) {
+	txn := app.StartTransaction("myTxn", w, r)
+	defer txn.End()
+
 	me := getSessionUser(r)
 
 	results := []Post{}
